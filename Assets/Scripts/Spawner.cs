@@ -3,8 +3,18 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
-public class Spawner : MonoBehaviour
+public class Spawner : BaseSpawner
 {
+    public override void StartSpawning()
+    {
+        enabled = true; // Enable spawning
+    }
+
+    public override void StopSpawning()
+    {
+        enabled = false; // Disable spawning
+    }
+
     private Collider spawnArea;
     public GameObject[] fruitPrefabs;
     public GameObject bombPrefab;
@@ -63,47 +73,49 @@ public class Spawner : MonoBehaviour
 
     private IEnumerator Spawn()
     {
-        yield return new WaitForSeconds(2f);
+        yield return new WaitForSeconds(2f);  // Initial delay before spawning starts
 
         while (enabled)
         {
-            GameObject prefab = GetPooledObject();
+            GameObject prefab = GetPooledObject();  // Get a fruit from the pool
 
             if (Random.value < bombChance)
             {
-                prefab = GetPooledBomb();
+                prefab = GetPooledBomb();  // Choose a bomb based on chance
             }
 
             if (prefab != null)
             {
-                // Set spawn position below the camera and in front of the user
-                Vector3 position = new Vector3
+                // Set spawn position below the camera, within a range in the X direction
+                Vector3 spawnPosition = new Vector3
                 {
-                    x = Random.Range(spawnArea.bounds.min.x, spawnArea.bounds.max.x),
-                    y = Camera.main.transform.position.y - 3f,  // Adjust the y value to control how far below the fruits spawn
-                    z = Camera.main.transform.position.z + 1f    // Set slightly in front of the camera
+                    x = Random.Range(spawnArea.bounds.min.x, spawnArea.bounds.max.x),  // Randomize the X position
+                    y = spawnArea.bounds.min.y,  // Use the spawner's Y position
+                    z = spawnArea.bounds.min.z   // Use the spawner's Z position
                 };
 
+                // Random rotation for some variation
                 Quaternion rotation = Quaternion.Euler(0f, 0f, Random.Range(minAngle, maxAngle));
 
-                prefab.transform.position = position;
+                prefab.transform.position = spawnPosition;
                 prefab.transform.rotation = rotation;
                 prefab.SetActive(true);
 
-                // Apply upward force relative to the camera's up direction
+                // Apply an upward force relative to the camera's up direction
                 Rigidbody rb = prefab.GetComponent<Rigidbody>();
-                if (rb != null)  // Ensure rigidbody exists
+                if (rb != null)  // Ensure the rigidbody exists
                 {
-                    rb.velocity = Vector3.zero; // Reset velocity before applying force
-                    float force = Random.Range(minForce, maxForce);
-                    rb.AddForce(Camera.main.transform.up * force, ForceMode.Impulse);
+                    rb.velocity = Vector3.zero;  // Reset velocity before applying force
+                    float force = Random.Range(minForce, maxForce);  // Randomize force
+                    Vector3 launchDirection = new Vector3(Random.Range(-0.5f, 0.5f), 1, 0);  // Slight X variation, no Z movement
+                    rb.AddForce(launchDirection * force, ForceMode.Impulse);  // Apply the force to launch upwards
                 }
 
-                // Disable after lifetime
+                // Disable the object after a certain lifetime
                 StartCoroutine(DisableAfterLifetime(prefab, maxLifetime));
             }
 
-            yield return new WaitForSeconds(Random.Range(minSpawnDelay, maxSpawnDelay));
+            yield return new WaitForSeconds(Random.Range(minSpawnDelay, maxSpawnDelay));  // Delay before next spawn
         }
     }
 
@@ -161,4 +173,6 @@ public class Spawner : MonoBehaviour
             obj.SetActive(false);
         }
     }
+
+
 }

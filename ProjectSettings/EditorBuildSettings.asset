@@ -14,6 +14,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/FruitSlicerAR.unity
     guid: b73700318df7443e997079dabec27f27
+  - enabled: 1
+    path: Assets/Scenes/FruitSlicerAR 1.unity
+    guid: b05d1956548a2478a8768caa6bc04dcf
+  - enabled: 1
+    path: Assets/Scenes/FruitSlicerAR 2.unity
+    guid: c1ae4f6e81c4b44319b43ff487e5637a
+  - enabled: 1
+    path: Assets/Scenes/Levels.unity
+    guid: f5a54af1b85f148e492f1e379762643f
   m_configObjects:
     Niantic.Lightship.AR.LightshipSettings: {fileID: 11400000, guid: a46868bb1cc864532a57f21bf2b54d73, type: 2}
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 3b5ef03c6a50a48249a5a29f49fd337d, type: 2}

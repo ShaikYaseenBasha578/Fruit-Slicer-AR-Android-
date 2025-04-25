@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 [DefaultExecutionOrder(-1)]
 public class GameManager : MonoBehaviour
@@ -8,13 +9,19 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
 
     [SerializeField] private Blade blade;
-    [SerializeField] private Spawner spawner;
+    [SerializeField] private BaseSpawner spawner;
     [SerializeField] private Text scoreText;
+    [SerializeField] private Text highScoreText; // Text for displaying high score
     [SerializeField] private Image fadeImage;
-    [SerializeField] private GameObject restartButton; // Restart Button reference
-    [SerializeField] private Text gameOverText; // Game Over Text reference
+    [SerializeField] private GameObject restartButton; // Restart button
+    [SerializeField] private GameObject nextLevelButton; // Next level button
+    [SerializeField] private Text gameOverText; // Game Over text
 
     public int score { get; private set; } = 0;
+    private float highScore;
+
+    private bool isEndlessMode = false; // Flag for level 3
+    private int currentSceneIndex;
 
     private void Awake()
     {
@@ -38,41 +45,34 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
+        currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+
+        // Load the high score when the game starts
+        highScore = PlayerPrefs.GetFloat("hiscore", 0);
+        UpdateHighScoreText();
         NewGame();
     }
 
     private void NewGame()
     {
-        // Reset time scale to ensure the game is running
         Time.timeScale = 1f;
-
-        // Clear the scene of game objects like fruits and bombs
         ClearScene();
-
-        // **Ensure the fade image is fully reset to transparent**
         fadeImage.color = Color.clear;
 
-        // Re-enable game logic
         blade.enabled = true;
-        spawner.enabled = true;
+        spawner.StartSpawning();
 
-        // Reset the score and update the UI
         score = 0;
         scoreText.text = score.ToString();
 
-        // Ensure restart button and game over text are hidden
         if (restartButton != null) restartButton.SetActive(false);
-        if (gameOverText != null)
-        {
-            gameOverText.gameObject.SetActive(false);
-        }
+        if (gameOverText != null) gameOverText.gameObject.SetActive(false);
+        if (nextLevelButton != null) nextLevelButton.SetActive(false);
     }
 
     private void ClearScene()
     {
-        // Destroy fruits and bombs, but don't touch UI elements
         Fruit[] fruits = FindObjectsOfType<Fruit>();
-
         foreach (Fruit fruit in fruits)
         {
             if (fruit != null)
@@ -82,7 +82,6 @@ public class GameManager : MonoBehaviour
         }
 
         Bomb[] bombs = FindObjectsOfType<Bomb>();
-
         foreach (Bomb bomb in bombs)
         {
             if (bomb != null)
@@ -97,30 +96,50 @@ public class GameManager : MonoBehaviour
         score += points;
         scoreText.text = score.ToString();
 
-        // Update high score
-        float hiscore = PlayerPrefs.GetFloat("hiscore", 0);
+        // Debug log to check score value
+        Debug.Log("Current Score: " + score);
 
-        if (score > hiscore)
+        // Update high score if necessary
+        if (score > highScore)
         {
-            hiscore = score;
-            PlayerPrefs.SetFloat("hiscore", hiscore);
+            highScore = score;
+            PlayerPrefs.SetFloat("hiscore", highScore);
+            UpdateHighScoreText();
+        }
+
+        // Check and display the "Next Level" button when score reaches 20
+        if (score >= 10 && !nextLevelButton.activeSelf)
+        {
+            Debug.Log("Next level button should appear.");
+            nextLevelButton.SetActive(true); // Activate the button
+        }
+    }
+
+    private void UpdateHighScoreText()
+    {
+        if (highScoreText != null)
+        {
+            highScoreText.text = "High Score: " + highScore.ToString();
         }
     }
 
     public void Explode()
     {
-        // Disable game logic
-        blade.enabled = false;
-        spawner.enabled = false;
+        if (isEndlessMode && IsSpecialObjectCut())
+        {
+            EndGame();
+            return;
+        }
 
-        // Show Game Over text and Restart button if they exist
+        blade.enabled = false;
+        spawner.StopSpawning();
+
         if (gameOverText != null && !gameOverText.gameObject.activeSelf)
             gameOverText.gameObject.SetActive(true);
 
         if (restartButton != null && !restartButton.activeSelf)
             restartButton.SetActive(true);
 
-        // Start the fade-out effect
         StartCoroutine(ExplodeSequence());
     }
 
@@ -129,7 +148,6 @@ public class GameManager : MonoBehaviour
         float elapsed = 0f;
         float duration = 0.5f;
 
-        // Fade to white
         while (elapsed < duration)
         {
             float t = Mathf.Clamp01(elapsed / duration);
@@ -139,29 +157,49 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
 
-        // Pause the game, and wait for the player to restart
-        Time.timeScale = 0f;  // Game is paused, waiting for restart
-
-        // Ensure that when the game is restarted, the fade is reset
+        Time.timeScale = 0f;
         fadeImage.color = Color.white;
     }
 
-    // Called when the player clicks the "Restart" button
     public void OnRestartButtonClick()
     {
-        // Resume the game and start a new one
-        Time.timeScale = 1f; // Resume the game
-        NewGame(); // Reset the game state
+        Time.timeScale = 1f;
+        NewGame();
 
-        // Ensure that the UI is cleared appropriately after restart
-        if (restartButton != null) restartButton.SetActive(false);
-        if (gameOverText != null) gameOverText.gameObject.SetActive(false);
+        // Reset spawner after restarting
+        if (spawner is SIH_Spawner sihSpawner)
+        {
+            sihSpawner.ResetSpawner();
+        }
+    }
 
-        if (restartButton != null)
-            Debug.Log("Restart Button exists and is active: " + restartButton.activeSelf);
-        else
-            Debug.LogError("Restart Button is null!");
+    public void OnNextLevelButtonClick()
+    {
+        if (currentSceneIndex < SceneManager.sceneCountInBuildSettings - 1)
+        {
+            SceneManager.LoadScene(currentSceneIndex + 1);
+        }
+    }
 
+    private bool IsSpecialObjectCut()
+    {
+        // Check if a special object was cut
+        // Implement your logic here, such as checking tags or a specific condition
+        return false; // Replace this with actual logic
+    }
 
+    private void EndGame()
+    {
+        // Handle end-game logic for endless mode
+        blade.enabled = false;
+        spawner.StopSpawning();
+
+        if (gameOverText != null && !gameOverText.gameObject.activeSelf)
+            gameOverText.gameObject.SetActive(true);
+
+        if (restartButton != null && !restartButton.activeSelf)
+            restartButton.SetActive(true);
+
+        Time.timeScale = 0f;
     }
 }
